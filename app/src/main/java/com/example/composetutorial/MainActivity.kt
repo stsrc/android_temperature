@@ -28,9 +28,11 @@ import android.os.Handler
 import android.os.Looper
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
-import java.util.Collections.addAll
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.selection.selectable
 
 // https://www.codeplayon.com/2022/03/bluetooth-connected-list-in-jetpack/
+// https://www.geeksforgeeks.org/radiobuttons-in-android-using-jetpack-compose/
 
 class MainActivity : ComponentActivity() {
     private var counter = mutableStateOf(0)
@@ -85,8 +87,8 @@ class MainActivity : ComponentActivity() {
         checkPermission(Manifest.permission.BLUETOOTH_SCAN)
         checkPermission(Manifest.permission.BLUETOOTH_CONNECT)
         checkPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
-        checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-        checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+        checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION) // TODO: remove?
+        checkPermission(Manifest.permission.ACCESS_FINE_LOCATION) // TODO: remove?
     }
 
     @SuppressLint("MissingPermission")
@@ -96,10 +98,13 @@ class MainActivity : ComponentActivity() {
                 BluetoothDevice.ACTION_FOUND -> {
                     val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     if (device != null) {
-                        val list = mutableListOf<BluetoothDevice>()
-                        list.apply {addAll(mDiscoveredDevicesMutable.value)}
-                        list.add(device)
-                        mDiscoveredDevicesMutable.value = list
+
+                        if (!mDiscoveredDevicesMutable.value.contains(device)) {
+                            val list = mutableListOf<BluetoothDevice>()
+                            list.apply { addAll(mDiscoveredDevicesMutable.value) }
+                            list.add(device)
+                            mDiscoveredDevicesMutable.value = list
+                        }
 
                         if (device.name != null) {
                             Log.i(
@@ -161,11 +166,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     @Composable
     fun ButtonRootView() {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceAround,
+            verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth()
@@ -173,8 +179,34 @@ class MainActivity : ComponentActivity() {
             SimpleButton()
             SimpleList()
             Column {
-                SimpleRadioGroup("Male")
-                SimpleRadioGroup("Female")
+                mDiscoveredDevicesMutable.value.forEach { it ->
+                    Row(
+                        Modifier
+                            // using modifier to add max
+                            // width to our radio button.
+                            .fillMaxWidth(),
+                            // below method is use to add
+                            // selectable to our radio button.
+                            //.selectable(
+                                // this method is called when
+                                // radio button is selected.
+//                                selected = (text == selectedOption),
+                                // below method is called on
+                                // clicking of radio button.
+//                                onClick = { onOptionSelected(text) }
+//                            )
+                            // below line is use to add
+                            // padding to radio button.
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    )
+
+                    {
+                        if (it.name != null) {
+                            SimpleRadioGroup(it.name)
+                        }
+                    }
+                }
             }
         }
     }
@@ -204,14 +236,13 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun SimpleRadioGroup(sex: String) {
-        Row {
-            RadioButton(selected = selected.value == sex, onClick = { selected.value = sex })
-            Text(
-                    text = sex,
-                    modifier = Modifier.clickable(onClick = { selected.value = sex })
+    fun SimpleRadioGroup(device: String) {
+        RadioButton(selected = selected.value == device, onClick = { selected.value = device })
+        Text(
+            text = device,
+            modifier = Modifier
+                .clickable(onClick = { selected.value = device })
             )
-        }
     }
 
     @Preview(showBackground = true, showSystemUi = true)
