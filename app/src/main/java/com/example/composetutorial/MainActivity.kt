@@ -33,12 +33,14 @@ import java.util.*
 
 class MainActivity : ComponentActivity() {
     private var counter = mutableStateOf(0)
+    private var temperature = mutableStateOf(0.0)
+    private var humidity = mutableStateOf(0)
 
     private lateinit var mBluetoothManager:  BluetoothManager
     private lateinit var mBluetoothAdapter: BluetoothAdapter
-    private var mPairedDevices: Set<BluetoothDevice> = emptySet()
+
     private val mDiscoveredDevicesMutable: MutableState<MutableList<BluetoothDevice>> = mutableStateOf(mutableListOf())
-    private lateinit var mBluetoothGatt: BluetoothGatt;
+    private var mBluetoothGatt: BluetoothGatt? = null;
 
     private val activityResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -179,7 +181,7 @@ class MainActivity : ComponentActivity() {
             if (mDiscoveredDevicesMutable.value.size != 0) {
                 val bluetoothDevice = SimpleRadioGroup()
                 ButtonBluetoothPair(bluetoothDevice)
-                ButtonBluetoothDisconnect(bluetoothDevice)
+                ButtonBluetoothDisconnect()
             }
         }
     }
@@ -194,7 +196,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-        @SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission")
     @Composable
     fun ButtonBluetoothPair(bluetoothDevice: BluetoothDevice) {
         Button(onClick = {
@@ -203,6 +205,17 @@ class MainActivity : ComponentActivity() {
             Text(text = "Pair with selected")
         }
     }
+
+    @SuppressLint("MissingPermission")
+    @Composable
+    fun ButtonBluetoothDisconnect() {
+        Button(onClick = {
+            mBluetoothGatt?.disconnect()
+        }) {
+            Text(text = "Disconnect")
+        }
+    }
+
 
     private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
@@ -215,7 +228,7 @@ class MainActivity : ComponentActivity() {
                 Log.i("bluetooth", "Connected to GATT server.")
                 Log.i(
                     "bluetooth", "Attempting to start service discovery:" +
-                            mBluetoothGatt.discoverServices()
+                            mBluetoothGatt?.discoverServices()
                 )
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i("bluetooth", "Disconnected from GATT server.")
@@ -248,6 +261,11 @@ class MainActivity : ComponentActivity() {
         ) {
             val character = characteristic.getStringValue(0) ?: return
             Log.w("bluetooth", "read character: $character")
+            val array = character.split(";").toTypedArray()
+            if (array.size == 2) {
+                temperature.value = array[0].toDouble()
+                humidity.value = array[1].toInt()
+            }
         }
 
         // Result of a characteristic read operation
@@ -269,8 +287,8 @@ class MainActivity : ComponentActivity() {
                 Text(text = "test")
             }
             item {
-                Text(text = "test pushed: " + counter.value.toString())
-                Text(text = "test: " + mDiscoveredDevicesMutable.value.count().toString())
+                Text(text = "Temperature: " + temperature.value.toString())
+                Text(text = "Humidity: " + humidity.value.toString())
             }
         }
     }
