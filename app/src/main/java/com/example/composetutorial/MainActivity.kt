@@ -36,7 +36,6 @@ import androidx.compose.foundation.selection.selectable
 
 class MainActivity : ComponentActivity() {
     private var counter = mutableStateOf(0)
-    private var selected = mutableStateOf("Male")
 
     private lateinit var mBluetoothManager:  BluetoothManager
     private lateinit var mBluetoothAdapter: BluetoothAdapter
@@ -179,33 +178,8 @@ class MainActivity : ComponentActivity() {
             SimpleButton()
             SimpleList()
             Column {
-                mDiscoveredDevicesMutable.value.forEach { it ->
-                    Row(
-                        Modifier
-                            // using modifier to add max
-                            // width to our radio button.
-                            .fillMaxWidth(),
-                            // below method is use to add
-                            // selectable to our radio button.
-                            //.selectable(
-                                // this method is called when
-                                // radio button is selected.
-//                                selected = (text == selectedOption),
-                                // below method is called on
-                                // clicking of radio button.
-//                                onClick = { onOptionSelected(text) }
-//                            )
-                            // below line is use to add
-                            // padding to radio button.
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    )
-
-                    {
-                        if (it.name != null) {
-                            SimpleRadioGroup(it.name)
-                        }
-                    }
+                if (mDiscoveredDevicesMutable.value.size != 0) {
+                    SimpleRadioGroup()
                 }
             }
         }
@@ -235,14 +209,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     @Composable
-    fun SimpleRadioGroup(device: String) {
-        RadioButton(selected = selected.value == device, onClick = { selected.value = device })
-        Text(
-            text = device,
-            modifier = Modifier
-                .clickable(onClick = { selected.value = device })
+    fun SimpleRadioGroup() {
+        var selected by remember { mutableStateOf(mDiscoveredDevicesMutable.value[0]) }
+
+        mDiscoveredDevicesMutable.value.forEach { it ->
+            Row(
+                Modifier
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             )
+            {
+                if (it.name != null) {
+                    RadioButton(selected = selected == it,
+                        onClick = { selected = it })
+                    Text(
+                        text = it.name
+                    )
+                }
+            }
+        }
     }
 
     @Preview(showBackground = true, showSystemUi = true)
