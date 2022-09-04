@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,6 +17,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.Button
@@ -23,7 +26,17 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PaintingStyle.Companion.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import java.util.*
 
@@ -32,8 +45,7 @@ import java.util.*
 // https://www.geeksforgeeks.org/radiobuttons-in-android-using-jetpack-compose/
 
 class MainActivity : ComponentActivity() {
-    private var counter = mutableStateOf(0)
-    private var temperature = mutableStateOf(0.0)
+    private var temperature = mutableStateOf(0.0f)
     private var humidity = mutableStateOf(0)
 
     private lateinit var mBluetoothManager:  BluetoothManager
@@ -165,6 +177,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun temperatureColorFromValue(value: Float): Color
+    {
+        if (value == 25f)
+            return Color(0, 255, 0)
+
+        if (value <= 0f)
+            return Color(0, 0, 255)
+
+        if (value >= 50f)
+            return Color(255, 0, 0)
+
+        if (value < 25f) {
+            return Color(0,
+                         (255f * value / 25f).toInt(),
+                         (255f * (25f - value) / 25f).toInt())
+        } else {
+            return Color((255f * (value) / 50f).toInt(),
+                          (255f * (50f - value) / 50f).toInt(),
+                          0)
+        }
+    }
+
     @SuppressLint("MissingPermission")
     @Composable
     fun ButtonRootView() {
@@ -176,13 +210,30 @@ class MainActivity : ComponentActivity() {
                 .fillMaxWidth()
         ) {
             SimpleButton()
-            SimpleList()
 
             if (mDiscoveredDevicesMutable.value.size != 0) {
                 val bluetoothDevice = SimpleRadioGroup()
                 ButtonBluetoothPair(bluetoothDevice)
                 ButtonBluetoothDisconnect()
             }
+
+            ComposeCircularTemperatureBar(
+                value = temperature.value,
+                minValue = -50f,
+                maxValue = 50f,
+                fillColor = temperatureColorFromValue(temperature.value),
+                backgroundColor = Color.Gray,
+                strokeWidth = 10.dp
+            )
+
+            ComposeCircularHumidityBar(
+                value = humidity.value,
+                minValue = 0,
+                maxValue = 100,
+                fillColor = Color.Blue,
+                backgroundColor = Color.Gray,
+                strokeWidth = 10.dp
+            )
         }
     }
 
@@ -190,9 +241,8 @@ class MainActivity : ComponentActivity() {
     fun SimpleButton() {
         Button(onClick = {
             scan()
-            counter.value = counter.value + 1
         }) {
-            Text(text = "Simple Button")
+            Text(text = "Settings")
         }
     }
 
@@ -263,7 +313,7 @@ class MainActivity : ComponentActivity() {
             Log.w("bluetooth", "read character: $character")
             val array = character.split(";").toTypedArray()
             if (array.size == 2) {
-                temperature.value = array[0].toDouble()
+                temperature.value = array[0].toFloat()
                 humidity.value = array[1].toInt()
             }
         }
@@ -276,19 +326,6 @@ class MainActivity : ComponentActivity() {
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.w("bluetooth", "onCharacteristicRead ")
-            }
-        }
-    }
-
-    @Composable
-    fun SimpleList() {
-        LazyColumn {
-            item {
-                Text(text = "test")
-            }
-            item {
-                Text(text = "Temperature: " + temperature.value.toString())
-                Text(text = "Humidity: " + humidity.value.toString())
             }
         }
     }
@@ -318,14 +355,112 @@ class MainActivity : ComponentActivity() {
         return selected
     }
 
+    @Composable
+    fun ComposeCircularTemperatureBar(
+        value: Float,
+        minValue: Float,
+        maxValue: Float,
+        modifier: Modifier = Modifier,
+        fillColor: Color,
+        backgroundColor: Color,
+        strokeWidth: Dp
+    ) {
+        val paint = Paint().apply {
+            textAlign = Paint.Align.CENTER
+            textSize = 50f
+            color = Color.Black.toArgb()
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        }
+
+        Canvas(
+            modifier = modifier
+                .size(150.dp)
+                .padding(10.dp),
+        ) {
+            // Background Line
+            drawArc(
+                color = backgroundColor,
+                140f,
+                260f,
+                false,
+                style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round),
+                size = Size(size.width, size.height)
+            )
+
+            if (value < minValue || value > maxValue)
+                return@Canvas
+
+            // Fill Line
+            drawArc(
+                color = fillColor,
+                140f,
+                260f * ((maxValue - minValue) / 2 + value) / (maxValue - minValue),
+                false,
+                style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round),
+                size = Size(size.width, size.height)
+            )
+
+            drawContext.canvas.nativeCanvas.drawText("$value°C", center.x, center.y, paint)
+        }
+    }
+
+    @Composable
+    fun ComposeCircularHumidityBar(
+        value: Int,
+        minValue: Int,
+        maxValue: Int,
+        modifier: Modifier = Modifier,
+        fillColor: Color,
+        backgroundColor: Color,
+        strokeWidth: Dp
+    ) {
+        val paint = Paint().apply {
+            textAlign = Paint.Align.CENTER
+            textSize = 50f
+            color = Color.Black.toArgb()
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        }
+        Canvas(
+            modifier = modifier
+                .size(150.dp)
+                .padding(10.dp)
+        ) {
+            // Background Line
+            drawArc(
+                color = backgroundColor,
+                140f,
+                260f,
+                false,
+                style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round),
+                size = Size(size.width, size.height)
+            )
+
+            if (value < minValue || value > maxValue)
+                return@Canvas
+
+            // Fill Line
+            drawArc(
+                color = fillColor,
+                140f,
+                260f * value / maxValue,
+                false,
+                style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round),
+                size = Size(size.width, size.height)
+            )
+
+            drawContext.canvas.nativeCanvas.drawText("$value%", center.x, center.y, paint)
+        }
+    }
+
+
     @Preview(showBackground = true, showSystemUi = true)
     @Composable
     fun ButtonPreview() {
         ButtonRootView()
     }
 
-    @SuppressLint("MissingPermission")
-    override fun onDestroy() {
+    @SuppressLint("MissingPermission") // TODO: why supress?
+    override fun onDestroy() { // TODO: all other to destroy
         super.onDestroy()
         if (mBluetoothAdapter.isDiscovering) {
             mBluetoothAdapter.cancelDiscovery()
